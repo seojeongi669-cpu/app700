@@ -48,27 +48,24 @@ else:
  people=sorted(set(['아빠','엄마','나']+[x['person'] for k in ['bp','med'] for x in items(k)]))
  person=top2.selectbox('가족 선택',people,index=people.index('아빠'),label_visibility='collapsed')
  monday=now().date()-timedelta(days=now().weekday())
- chosen=st.date_input('주간 선택 · 해당 날짜가 속한 주',value=now().date(),max_value=now().date())
+ chosen=now().date()
  start=chosen-timedelta(days=chosen.weekday());days=[start+timedelta(days=i) for i in range(7)]
  weekdays=['월','화','수','목','금','토','일']
- st.caption(f'{start:%m.%d} — {days[-1]:%m.%d}')
+
  if page=='혈압':
-  st.title('혈압 · 일주일')
+  st.title('혈압 기록')
   logs=[x for x in items('bp') if x['person']==person]
   rows=[]
   for i,day in enumerate(days):
    found=[x for x in logs if datetime.fromisoformat(x['at']).date()==day]
    rows.append({'날짜':f'{day:%m/%d} {weekdays[i]}','최고':round(sum(x['s'] for x in found)/len(found)) if found else None,'최저':round(sum(x['d'] for x in found)/len(found)) if found else None})
   weeklogs=[x for x in logs if start<=datetime.fromisoformat(x['at']).date()<=days[-1]]
-  a,b=st.columns(2)
-  a.metric('이번 주 평균 최고',f'{sum(x["s"] for x in weeklogs)/len(weeklogs):.0f} mmHg' if weeklogs else '기록 없음')
-  b.metric('이번 주 평균 최저',f'{sum(x["d"] for x in weeklogs)/len(weeklogs):.0f} mmHg' if weeklogs else '기록 없음')
-  st.subheader('✍️ 혈압 입력하기')
-  with st.form('daily_pressure'):
-   measured=st.date_input('측정한 날짜',value=now().date(),max_value=now().date())
+  st.caption('혈압계에 나온 숫자를 적어 주세요.')
+  with st.form('daily_pressure',border=False):
+   measured=now().date()
    c1,c2=st.columns(2)
-   high=c1.text_input('최고혈압 · 위쪽 숫자',placeholder='예: 120',max_chars=3)
-   low=c2.text_input('최저혈압 · 아래쪽 숫자',placeholder='예: 80',max_chars=3)
+   high=c1.text_input('최고혈압',placeholder='120',max_chars=3)
+   low=c2.text_input('최저혈압',placeholder='80',max_chars=3)
    if st.form_submit_button('이 혈압 저장하기',use_container_width=True):
     try:
      sv,dv=int(high.strip()),int(low.strip())
@@ -76,27 +73,22 @@ else:
      put('bp',{'person':person,'s':sv,'d':dv,'pulse':None,'at':datetime.combine(measured,now().time(),tzinfo=ZoneInfo('Asia/Seoul')).isoformat()})
      st.rerun()
     except ValueError:st.error('혈압계에서 확인한 숫자를 적어 주세요. 최고혈압이 최저혈압보다 커야 해요.')
-  st.caption('혈압계로 측정한 값을 적는 곳입니다.')
-  if weeklogs:
-   latest=max(weeklogs,key=lambda x:x['at']);label,color,_=classify(latest['s'],latest['d'])
-   st.markdown(f'<div style="padding:14px;background:white;border-left:7px solid {color};border-radius:12px;color:{color};font-size:21px;font-weight:bold">최근 {latest["s"]}/{latest["d"]} · {label}</div>',unsafe_allow_html=True)
-   if latest['s']>=180 or latest['d']>=120:st.error('가슴 통증·숨참·마비·언어 이상은 119. 증상이 없어도 1분 후 재측정, 계속 높으면 즉시 의료진에게 연락하세요.')
+  if logs:
+   latest=max(logs,key=lambda x:x['at']);label,color,_=classify(latest['s'],latest['d'])
+   st.markdown(f'<div style="background:white;border-left:6px solid {color};border-radius:16px;padding:16px;margin:15px 0;color:{color}"><small>마지막 기록</small><div style="font-size:32px;font-weight:700">{latest["s"]} / {latest["d"]}</div><strong>{label}</strong></div>',unsafe_allow_html=True)
+   if latest['s']>=180 or latest['d']>=120:st.error('가슴 통증·숨참·마비·말하기 어려움은 즉시 119. 증상이 없어도 1분 후 다시 재고 계속 높으면 즉시 의료진에게 연락하세요.')
    elif latest['s']<90 or latest['d']<60:st.warning('어지럼·실신 등 증상이 있으면 의료진에게 연락하세요. 위급하면 119.')
-  st.subheader('이번 주 기록')
-  st.caption('🟢 정상 범위  ·  🟡 주의  ·  🔴 높음 또는 낮음')
-  for i,day in enumerate(days):
-   found=[x for x in logs if datetime.fromisoformat(x['at']).date()==day]
-   date_label=f'{day:%m/%d} {weekdays[i]}'
-   if found:
-    # 색상은 평균이 아닌 그날 가장 최근 측정에 적용
-    last=max(found,key=lambda x:x['at'])
-    label,color,_=classify(last['s'],last['d'])
-    icon='🟢' if color=='#29875D' else ('🟡' if color=='#D69E16' else '🔴')
-    value=f'{last["s"]} / {last["d"]}'
-    st.markdown(f'<div style="display:flex;justify-content:space-between;align-items:center;background:white;border-left:6px solid {color};border-radius:12px;padding:12px 14px;margin:7px 0"><span style="color:#18334F;font-size:17px">{date_label}</span><strong style="color:{color};font-size:23px">{value}</strong><span style="color:{color};font-size:16px">{icon} {label}</span></div>',unsafe_allow_html=True)
-   else:
-    st.markdown(f'<div style="display:flex;justify-content:space-between;background:#E9EFF6;border-radius:12px;padding:12px 14px;margin:7px 0;color:#53667D"><span>{date_label}</span><span>기록 없음</span></div>',unsafe_allow_html=True)
-  st.caption('단위 mmHg · 일별 표시는 마지막 측정값, 위 평균은 이번 주 전체 측정값의 단순평균입니다. 색은 성인 참고 기준이며 진단이 아닙니다. 혈압약은 임의로 조절하지 마세요.')
+  if weeklogs:
+   mean_s=sum(x['s'] for x in weeklogs)/len(weeklogs);mean_d=sum(x['d'] for x in weeklogs)/len(weeklogs)
+   st.markdown(f'**이번 주 평균　{mean_s:.0f} / {mean_d:.0f} mmHg**')
+  if st.button('지난 기록 보기',use_container_width=True):
+   st.session_state.show_history=not st.session_state.get('show_history',False)
+  if st.session_state.get('show_history',False):
+   for r in sorted(logs,key=lambda x:x['at'],reverse=True)[:30]:
+    label,color,_=classify(r['s'],r['d'])
+    when=datetime.fromisoformat(r['at']).strftime('%m/%d %H:%M')
+    st.markdown(f'<div style="padding:10px;border-bottom:1px solid #DCE7F6;color:{color}">{when}　 <b>{r["s"]} / {r["d"]}</b>　{label}</div>',unsafe_allow_html=True)
+   st.caption('단위 mmHg · 평균은 이번 주 측정값의 단순평균. 색상은 성인 참고 기준이며 진단이 아닙니다. 약은 처방대로 복용하세요.')
  else:
   st.title('복약 · 일주일')
   meds=[x for x in items('med') if x['person']==person]
