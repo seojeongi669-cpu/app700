@@ -34,12 +34,28 @@ import pandas as pd
 st.markdown('''<style>
 :root{color-scheme:light}.stApp{background:#F2F6FC!important;color:#18334F!important}.block-container{max-width:820px;padding:3.8rem 1rem 2rem}header{background:#F2F6FC!important}h1,h2,h3,p,label{color:#18334F!important}button{min-height:52px!important;border-radius:14px!important}.stButton,.stButton>button{width:100%!important}.stButton>button{background:#E1EDFF!important;border:1px solid #BCD1F0!important}.stButton>button p{font-size:19px!important;font-weight:650!important;color:#163E72!important}[data-baseweb="select"]>div{min-height:52px!important;height:auto!important;background:white!important;color:#18334F!important}input{background:white!important;color:#18334F!important;-webkit-text-fill-color:#18334F!important}[data-testid="stMetric"]{background:#fff;padding:14px;border-radius:16px;border:1px solid #DCE7F6}[data-testid="stSidebar"]{display:none}.hero{background:linear-gradient(125deg,#175FC7,#438BE8);padding:24px;border-radius:22px;color:white;margin-bottom:20px}.hero h2,.hero p{color:white!important;margin:0}.home-title{font-size:19px;color:#45637F}
 </style>''',unsafe_allow_html=True)
+st.markdown('''<style>
+#MainMenu,footer,[data-testid="stToolbar"]{display:none!important}
+.block-container{max-width:520px!important;padding:3.5rem 1.1rem 3rem!important}
+.stApp{background:#EDF3FB!important}
+h1{font-size:28px!important;letter-spacing:-1px!important;margin-bottom:14px!important}
+[data-testid="stForm"]{background:#fff!important;border:1px solid #DFE8F5!important;border-radius:22px!important;padding:20px!important;box-shadow:0 5px 18px #18334F08}
+[data-testid="stTextInput"] input{font-size:27px!important;font-weight:700!important;min-height:64px!important;text-align:center!important;border-radius:12px!important}
+.stButton>button,.stFormSubmitButton>button{transition:none!important;box-shadow:none!important;min-height:54px!important;background:#E1EDFF!important;color:#163E72!important;border:1px solid #BCD1F0!important}
+.stButton>button:hover,.stButton>button:focus,.stButton>button:active,.stFormSubmitButton>button:hover,.stFormSubmitButton>button:focus{background:#E1EDFF!important;color:#163E72!important;border-color:#BCD1F0!important}
+.stFormSubmitButton>button{width:100%!important;background:#2368D2!important;border:none!important}
+.stFormSubmitButton>button p{color:white!important;font-weight:700!important}
+[data-testid="stTabs"] [role="tablist"]{background:#DFE8F5;border-radius:14px;padding:5px;gap:3px}
+[data-testid="stTabs"] [role="tab"]{flex:1;justify-content:center;border-radius:10px;font-size:16px!important}
+[data-testid="stTabs"] [aria-selected="true"]{background:white!important}
+[data-testid="stVerticalBlockBorderWrapper"]{border-radius:20px!important}
+</style>''',unsafe_allow_html=True)
 if 'page' not in st.session_state:st.session_state.page='홈'
 def go(p):st.session_state.page=p;st.rerun()
 page=st.session_state.page
 if page=='홈':
  st.markdown('<div class="hero"><h2>우리집 건강수첩</h2><p>가족의 일주일을 한눈에</p></div>',unsafe_allow_html=True)
- st.markdown('<style>.stButton>button{min-height:160px!important}.stButton>button p{font-size:27px!important}</style>',unsafe_allow_html=True)
+ st.markdown('<style>.stButton>button{min-height:145px!important;background:white!important;border:1px solid #D6E3F6!important;box-shadow:0 5px 18px #18334F08!important;text-align:left!important;justify-content:flex-start!important;padding:24px!important}.stButton>button p{font-size:26px!important;color:#17437C!important}</style>',unsafe_allow_html=True)
  if st.button('🩺 혈압 · 주간 기록',use_container_width=True):go('혈압')
  if st.button('💊 복약 · 주간 기록',use_container_width=True):go('약')
 else:
@@ -93,7 +109,7 @@ else:
   st.title('복약 · 일주일')
   meds=[x for x in items('med') if x['person']==person]
   taken=items('taken');today=str(now().date())
-  tab1,tab2,tab3=st.tabs(['오늘 먹기','주간 그래프','약 추가·관리'])
+  tab1,tab2,tab3=st.tabs(['오늘 먹기','주간 기록','약 추가·관리'])
   with tab1:
    if not meds:st.info('약 추가·관리에서 약 이름을 등록하세요.')
    for m in meds:
@@ -113,8 +129,9 @@ else:
    for i,day in enumerate(days):
     done=len({x['slot'] for x in taken if x['date']==str(day) and x['slot'] in slots})
     rows.append({'날짜':f'{day:%m/%d} {weekdays[i]}','복용 확인 횟수':done if day<=now().date() else None})
-   st.bar_chart(pd.DataFrame(rows).set_index('날짜'),color='#2674D9',height=240)
-   st.dataframe(pd.DataFrame(rows),hide_index=True,use_container_width=True)
+   for row in rows:
+    value='—' if pd.isna(row['복용 확인 횟수']) else str(int(row['복용 확인 횟수']))+'회'
+    st.markdown(f'<div style="display:flex;justify-content:space-between;padding:16px 18px;background:white;border-radius:14px;margin:7px 0;color:#18334F"><span>{row["날짜"]}</span><strong>{value}</strong></div>',unsafe_allow_html=True)
    st.caption('기록한 복용 확인 횟수입니다. 처방 변경·약 삭제 전후에는 직접 비교하지 마세요.')
   with tab3:
    with st.form('newmed',clear_on_submit=True):
