@@ -92,12 +92,23 @@ else:
    high=c1.text_input('최고혈압',placeholder='예: 120',max_chars=3)
    low=c2.text_input('최저혈압',placeholder='예: 80',max_chars=3)
    if st.form_submit_button('이 혈압 저장하기',use_container_width=True):
+    import unicodedata
     try:
-     sv,dv=int(high.strip()),int(low.strip())
-     if not (50<=sv<=300 and 30<=dv<=180 and sv>dv):raise ValueError()
-     put('bp',{'person':person,'s':sv,'d':dv,'pulse':None,'at':datetime.combine(measured,now().time(),tzinfo=ZoneInfo('Asia/Seoul')).isoformat()})
-     st.rerun()
-    except ValueError:st.error('혈압계에서 확인한 숫자를 적어 주세요. 최고혈압이 최저혈압보다 커야 해요.')
+     sv=int(unicodedata.normalize('NFKC',high).strip())
+     dv=int(unicodedata.normalize('NFKC',low).strip())
+    except ValueError:
+     st.error('예시는 입력값이 아니에요. 두 칸에 실제 측정한 숫자를 써 주세요.')
+    else:
+     if not (50<=sv<=300 and 30<=dv<=180 and sv>dv):
+      st.error('최고·최저혈압을 확인해 주세요. 최고가 최저보다 커야 해요.')
+     else:
+      try:
+       put('bp',{'person':person,'s':sv,'d':dv,'pulse':None,'at':now().isoformat()})
+       st.session_state['bp_saved']=True
+      except sqlite3.Error:
+       st.error('기록을 저장하지 못했어요. 잠시 후 다시 시도해 주세요.')
+      else:st.rerun()
+  if st.session_state.pop('bp_saved',False):st.success('혈압이 저장됐어요 ✓')
   if logs:
    latest=max(logs,key=lambda x:x['at']);label,color,_=classify(latest['s'],latest['d'])
    st.markdown(f'<div style="background:white;border-left:6px solid {color};border-radius:16px;padding:16px;margin:15px 0;color:{color}"><small>마지막 기록</small><div style="font-size:32px;font-weight:700">{latest["s"]} / {latest["d"]}</div><strong>{label}</strong></div>',unsafe_allow_html=True)
@@ -119,12 +130,12 @@ else:
     st.markdown(f'<div style="padding:10px;border-bottom:1px solid #DCE7F6;color:{color}">{when}　 <b>{r["s"]} / {r["d"]}</b>　{label}</div>',unsafe_allow_html=True)
    st.caption('단위 mmHg · 평균은 이번 주 측정값의 단순평균. 색상은 성인 참고 기준이며 진단이 아닙니다. 약은 처방대로 복용하세요.')
  else:
-  st.title('복약 · 일주일')
+  st.title('약 먹기')
   meds=[x for x in items('med') if x['person']==person]
   taken=items('taken');today=str(now().date())
-  tab1,tab2,tab3=st.tabs(['오늘 먹기','주간 기록','약 추가·관리'])
+  tab1,tab2,tab3=st.tabs(['오늘 먹기','먹은 기록','약 등록'])
   with tab1:
-   if not meds:st.info('약 추가·관리에서 약 이름을 등록하세요.')
+   if not meds:st.info('약 등록에서 약 이름을 적어 주세요.')
    for m in meds:
     with st.container(border=True):
      st.subheader(m['name'])
@@ -135,17 +146,18 @@ else:
        else:put('taken',{'slot':slot,'date':today,'at':now().isoformat()})
        st.rerun()
   with tab2:
-   rows=[];expected=sum(len(m.get('times') or ['1']) for m in meds)
-   slots={m['id']+'_'+t for m in meds for t in (m.get('times') or ['하루 1회 기록'])}
-   # 이전 버전의 시간 미지정 기록도 포함
-   slots|={m['id']+'_'+t for m in meds for t in ['시간 미지정','하루 기록']}
-   for i,day in enumerate(days):
-    done=len({x['slot'] for x in taken if x['date']==str(day) and x['slot'] in slots})
-    rows.append({'날짜':f'{day:%m/%d} {weekdays[i]}','복용 확인 횟수':done if day<=now().date() else None})
-   for row in rows:
-    value='—' if pd.isna(row['복용 확인 횟수']) else str(int(row['복용 확인 횟수']))+'회'
-    st.markdown(f'<div style="display:flex;justify-content:space-between;padding:16px 18px;background:white;border-radius:14px;margin:7px 0;color:#18334F"><span>{row["날짜"]}</span><strong>{value}</strong></div>',unsafe_allow_html=True)
-   st.caption('기록한 복용 확인 횟수입니다. 처방 변경·약 삭제 전후에는 직접 비교하지 마세요.')
+   st.caption('최근 7일 · 실제로 먹었다고 체크한 약만 표시해요.')
+   names={m['id']:m['name'] for m in meds}
+   for offset in range(7):
+    day=now().date()-timedelta(days=offset)
+    records=[x for x in taken if x['date']==str(day) and x['slot'].rsplit('_',1)[0] in names]
+    title='오늘' if offset==0 else day.strftime('%m/%d')+' '+weekdays[day.weekday()]
+    with st.container(border=True):
+     st.markdown('**'+title+'**')
+     if not records:st.write('체크한 기록 없음')
+     for r in sorted(records,key=lambda x:x['at']):
+      mid,slot_time=r['slot'].rsplit('_',1)
+      st.write('✅ '+names[mid]+' · '+slot_time)
   with tab3:
    with st.form('newmed',clear_on_submit=True):
     name=st.text_input('약 이름',placeholder='예: 혈압약')
