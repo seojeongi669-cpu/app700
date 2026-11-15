@@ -50,6 +50,15 @@ h1{font-size:28px!important;letter-spacing:-1px!important;margin-bottom:14px!imp
 [data-testid="stTabs"] [aria-selected="true"]{background:white!important}
 [data-testid="stVerticalBlockBorderWrapper"]{border-radius:20px!important}
 </style>''',unsafe_allow_html=True)
+st.markdown('''<style>
+/* 상태별 색상을 모두 고정 */
+.stButton>button,.stButton>button:is(:hover,:active,:focus,:focus-visible){background:#E1EDFF!important;color:#163E72!important;border:1px solid #BCD1F0!important;outline:none!important;box-shadow:none!important;transform:none!important;transition:none!important}
+.stButton>button p,.stButton>button:is(:hover,:active,:focus,:focus-visible) p{color:#163E72!important}
+.stFormSubmitButton>button,.stFormSubmitButton>button:is(:hover,:active,:focus,:focus-visible){background:#2368D2!important;color:#fff!important;border:1px solid #2368D2!important;box-shadow:none!important;transform:none!important;transition:none!important}
+.stFormSubmitButton>button p,.stFormSubmitButton>button:is(:hover,:active,:focus,:focus-visible) p{color:#fff!important}
+input::placeholder{color:#A4B2C5!important;-webkit-text-fill-color:#A4B2C5!important;opacity:1!important;font-weight:400!important}
+input:not(:placeholder-shown){color:#18334F!important;-webkit-text-fill-color:#18334F!important}
+</style>''',unsafe_allow_html=True)
 if 'page' not in st.session_state:st.session_state.page='홈'
 def go(p):st.session_state.page=p;st.rerun()
 page=st.session_state.page
@@ -80,8 +89,8 @@ else:
   with st.form('daily_pressure',border=False):
    measured=now().date()
    c1,c2=st.columns(2)
-   high=c1.text_input('최고혈압',placeholder='120',max_chars=3)
-   low=c2.text_input('최저혈압',placeholder='80',max_chars=3)
+   high=c1.text_input('최고혈압',placeholder='예: 120',max_chars=3)
+   low=c2.text_input('최저혈압',placeholder='예: 80',max_chars=3)
    if st.form_submit_button('이 혈압 저장하기',use_container_width=True):
     try:
      sv,dv=int(high.strip()),int(low.strip())
@@ -100,6 +109,10 @@ else:
   if st.button('지난 기록 보기',use_container_width=True):
    st.session_state.show_history=not st.session_state.get('show_history',False)
   if st.session_state.get('show_history',False):
+   import io,csv
+   export=io.StringIO();writer=csv.writer(export);writer.writerow(['측정일시','최고혈압','최저혈압'])
+   for x in sorted(logs,key=lambda x:x['at'],reverse=True):writer.writerow([x['at'],x['s'],x['d']])
+   st.download_button('병원에 가져갈 기록 내려받기',export.getvalue().encode('utf-8-sig'),'blood_pressure.csv','text/csv')
    for r in sorted(logs,key=lambda x:x['at'],reverse=True)[:30]:
     label,color,_=classify(r['s'],r['d'])
     when=datetime.fromisoformat(r['at']).strftime('%m/%d %H:%M')
